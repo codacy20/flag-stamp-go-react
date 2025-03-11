@@ -17,36 +17,63 @@ const FlagSelector: React.FC<FlagSelectorProps> = ({ onSelectFlag }) => {
   const [availableCountries, setAvailableCountries] = useState<{code: string, name: string}[]>([]);
   
   useEffect(() => {
-    // Sample countries for initial display
+    // Countries from the image (37 participating countries)
+    const allCountries = [
+      { code: 'AL', name: 'Albania' },
+      { code: 'AM', name: 'Armenia' },
+      { code: 'AU', name: 'Australia' },
+      { code: 'AT', name: 'Austria' },
+      { code: 'AZ', name: 'Azerbaijan' },
+      { code: 'BE', name: 'Belgium' },
+      { code: 'HR', name: 'Croatia' },
+      { code: 'CY', name: 'Cyprus' },
+      { code: 'CZ', name: 'Czechia' },
+      { code: 'DK', name: 'Denmark' },
+      { code: 'EE', name: 'Estonia' },
+      { code: 'FI', name: 'Finland' },
+      { code: 'FR', name: 'France' },
+      { code: 'GE', name: 'Georgia' },
+      { code: 'DE', name: 'Germany' },
+      { code: 'GR', name: 'Greece' },
+      { code: 'IS', name: 'Iceland' },
+      { code: 'IE', name: 'Ireland' },
+      { code: 'IL', name: 'Israel' },
+      { code: 'IT', name: 'Italy' },
+      { code: 'LV', name: 'Latvia' },
+      { code: 'LT', name: 'Lithuania' },
+      { code: 'LU', name: 'Luxembourg' },
+      { code: 'MT', name: 'Malta' },
+      { code: 'ME', name: 'Montenegro' },
+      { code: 'NL', name: 'Netherlands' },
+      { code: 'NO', name: 'Norway' },
+      { code: 'PL', name: 'Poland' },
+      { code: 'PT', name: 'Portugal' },
+      { code: 'SM', name: 'San Marino' },
+      { code: 'RS', name: 'Serbia' },
+      { code: 'SI', name: 'Slovenia' },
+      { code: 'ES', name: 'Spain' },
+      { code: 'SE', name: 'Sweden' },
+      { code: 'CH', name: 'Switzerland' },
+      { code: 'UA', name: 'Ukraine' },
+      { code: 'GB', name: 'United Kingdom' }
+    ];
+    
+    // Sort countries alphabetically
+    setAvailableCountries(allCountries.sort((a, b) => a.name.localeCompare(b.name)));
+    
+    // Select 10 sample countries for initial display
     const sampleCountries = [
-      { code: 'US', name: 'United States' },
-      { code: 'GB', name: 'United Kingdom' },
       { code: 'FR', name: 'France' },
       { code: 'DE', name: 'Germany' },
       { code: 'IT', name: 'Italy' },
-      { code: 'JP', name: 'Japan' },
-      { code: 'CN', name: 'China' },
-      { code: 'BR', name: 'Brazil' },
-      { code: 'CA', name: 'Canada' },
-      { code: 'AU', name: 'Australia' }
-    ];
-    
-    // More countries for the dropdown
-    const allCountries = [
-      ...sampleCountries,
       { code: 'ES', name: 'Spain' },
-      { code: 'MX', name: 'Mexico' },
-      { code: 'KR', name: 'South Korea' },
-      { code: 'RU', name: 'Russia' },
-      { code: 'IN', name: 'India' },
-      { code: 'ZA', name: 'South Africa' },
-      { code: 'AR', name: 'Argentina' },
+      { code: 'GB', name: 'United Kingdom' },
       { code: 'SE', name: 'Sweden' },
+      { code: 'UA', name: 'Ukraine' },
+      { code: 'CH', name: 'Switzerland' },
       { code: 'NO', name: 'Norway' },
-      { code: 'NZ', name: 'New Zealand' }
+      { code: 'NL', name: 'Netherlands' }
     ];
-    
-    setAvailableCountries(allCountries.sort((a, b) => a.name.localeCompare(b.name)));
     
     // Create flag URLs for the initial sample
     const flagList = sampleCountries.map(country => ({

@@ -20,6 +20,7 @@ export interface ImageEditorHandle {
 const ImageEditor = forwardRef<ImageEditorHandle, ImageEditorProps>(({ imageUrl, selectedFlag }, ref) => {
   const [flags, setFlags] = useState<Flag[]>([]);
   const [draggedFlag, setDraggedFlag] = useState<number | null>(null);
+  const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   
@@ -93,8 +94,22 @@ const ImageEditor = forwardRef<ImageEditorHandle, ImageEditorProps>(({ imageUrl,
   
   // Improved drag and drop functionality
   const handleMouseDown = (e: React.MouseEvent, flagId: number) => {
-    e.preventDefault();
+    e.stopPropagation(); // Stop event propagation
+    
+    // Get container bounds
+    const containerRect = containerRef.current?.getBoundingClientRect();
+    if (!containerRect) return;
+    
+    // Find the flag being dragged
+    const flag = flags.find(f => f.id === flagId);
+    if (!flag) return;
+    
+    // Calculate the offset from the mouse position to the flag's top-left corner
+    const offsetX = e.clientX - (containerRect.left + flag.x);
+    const offsetY = e.clientY - (containerRect.top + flag.y);
+    
     setDraggedFlag(flagId);
+    setDragOffset({ x: offsetX, y: offsetY });
     
     // Add event listeners to document for smoother dragging
     document.addEventListener('mousemove', handleMouseMove);
@@ -104,17 +119,20 @@ const ImageEditor = forwardRef<ImageEditorHandle, ImageEditorProps>(({ imageUrl,
   const handleMouseMove = (e: MouseEvent) => {
     if (draggedFlag === null || !containerRef.current) return;
     
-    const container = containerRef.current;
-    const containerRect = container.getBoundingClientRect();
+    const containerRect = containerRef.current.getBoundingClientRect();
     
     // Calculate new position relative to container
-    const newX = e.clientX - containerRect.left - 30; // Half flag width
-    const newY = e.clientY - containerRect.top - 20; // Half flag height
+    const newX = e.clientX - containerRect.left - dragOffset.x;
+    const newY = e.clientY - containerRect.top - dragOffset.y;
+    
+    // Ensure flag stays within container bounds
+    const boundedX = Math.max(0, Math.min(newX, containerRect.width - 60));
+    const boundedY = Math.max(0, Math.min(newY, containerRect.height - 40));
     
     // Update the flag position
     setFlags(prev => prev.map(flag => 
       flag.id === draggedFlag 
-        ? { ...flag, x: newX, y: newY } 
+        ? { ...flag, x: boundedX, y: boundedY } 
         : flag
     ));
   };
@@ -129,8 +147,24 @@ const ImageEditor = forwardRef<ImageEditorHandle, ImageEditorProps>(({ imageUrl,
   
   // Touch events for mobile devices
   const handleTouchStart = (e: React.TouchEvent, flagId: number) => {
-    e.preventDefault();
+    e.stopPropagation(); // Stop event propagation
+    
+    // Get container bounds
+    const containerRect = containerRef.current?.getBoundingClientRect();
+    if (!containerRect || !e.touches[0]) return;
+    
+    // Find the flag being dragged
+    const flag = flags.find(f => f.id === flagId);
+    if (!flag) return;
+    
+    const touch = e.touches[0];
+    
+    // Calculate the offset from the touch position to the flag's top-left corner
+    const offsetX = touch.clientX - (containerRect.left + flag.x);
+    const offsetY = touch.clientY - (containerRect.top + flag.y);
+    
     setDraggedFlag(flagId);
+    setDragOffset({ x: offsetX, y: offsetY });
     
     document.addEventListener('touchmove', handleTouchMove, { passive: false });
     document.addEventListener('touchend', handleTouchEnd);
@@ -140,16 +174,20 @@ const ImageEditor = forwardRef<ImageEditorHandle, ImageEditorProps>(({ imageUrl,
     e.preventDefault();
     if (draggedFlag === null || !containerRef.current || !e.touches[0]) return;
     
-    const container = containerRef.current;
-    const containerRect = container.getBoundingClientRect();
-    
+    const containerRect = containerRef.current.getBoundingClientRect();
     const touch = e.touches[0];
-    const newX = touch.clientX - containerRect.left - 30;
-    const newY = touch.clientY - containerRect.top - 20;
+    
+    // Calculate new position
+    const newX = touch.clientX - containerRect.left - dragOffset.x;
+    const newY = touch.clientY - containerRect.top - dragOffset.y;
+    
+    // Ensure flag stays within container bounds
+    const boundedX = Math.max(0, Math.min(newX, containerRect.width - 60));
+    const boundedY = Math.max(0, Math.min(newY, containerRect.height - 40));
     
     setFlags(prev => prev.map(flag => 
       flag.id === draggedFlag 
-        ? { ...flag, x: newX, y: newY } 
+        ? { ...flag, x: boundedX, y: boundedY } 
         : flag
     ));
   };
@@ -211,7 +249,12 @@ const ImageEditor = forwardRef<ImageEditorHandle, ImageEditorProps>(({ imageUrl,
         <div 
           key={flag.id}
           className={`flag-overlay ${draggedFlag === flag.id ? 'dragging' : ''}`}
-          style={{ left: `${flag.x}px`, top: `${flag.y}px` }}
+          style={{ 
+            left: `${flag.x}px`, 
+            top: `${flag.y}px`,
+            width: '60px',
+            height: '40px'
+          }}
           onMouseDown={(e) => handleMouseDown(e, flag.id)}
           onTouchStart={(e) => handleTouchStart(e, flag.id)}
         >
