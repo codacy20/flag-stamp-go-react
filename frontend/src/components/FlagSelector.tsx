@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useDraggable } from '@dnd-kit/core';
 import './FlagSelector.css';
 
 interface FlagSelectorProps {
@@ -10,6 +11,36 @@ interface Flag {
   name: string;
   url: string;
 }
+
+// Draggable Flag Item Component
+const DraggableFlagItem = ({ flag, isSelected, onSelect }: { 
+  flag: Flag, 
+  isSelected: boolean, 
+  onSelect: () => void 
+}) => {
+  const { attributes, listeners, setNodeRef, transform } = useDraggable({
+    id: `flag-item-${flag.code}`,
+    data: { flag }
+  });
+
+  const style = transform ? {
+    transform: `translate3d(${transform.x}px, ${transform.y}px, 0)`,
+  } : undefined;
+
+  return (
+    <div 
+      ref={setNodeRef}
+      className={`flag-item ${isSelected ? 'selected' : ''}`}
+      onClick={onSelect}
+      title={flag.name}
+      style={style}
+      {...listeners}
+      {...attributes}
+    >
+      <img src={flag.url} alt={`Flag of ${flag.name}`} />
+    </div>
+  );
+};
 
 const FlagSelector: React.FC<FlagSelectorProps> = ({ onSelectFlag }) => {
   const [flags, setFlags] = useState<Flag[]>([]);
@@ -131,14 +162,12 @@ const FlagSelector: React.FC<FlagSelectorProps> = ({ onSelectFlag }) => {
       
       <div className="flag-grid">
         {flags.map((flag) => (
-          <div 
-            key={flag.code} 
-            className={`flag-item ${selectedFlag === flag.url ? 'selected' : ''}`}
-            onClick={() => handleFlagSelect(flag.url)}
-            title={flag.name}
-          >
-            <img src={flag.url} alt={`Flag of ${flag.name}`} />
-          </div>
+          <DraggableFlagItem
+            key={flag.code}
+            flag={flag}
+            isSelected={selectedFlag === flag.url}
+            onSelect={() => handleFlagSelect(flag.url)}
+          />
         ))}
       </div>
     </div>

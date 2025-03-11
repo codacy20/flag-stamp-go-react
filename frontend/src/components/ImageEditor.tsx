@@ -1,11 +1,14 @@
 import { useState, useRef, useEffect, forwardRef, useImperativeHandle } from 'react';
+import { DndContext, useDraggable, DragEndEvent, DragStartEvent, DragMoveEvent, useDroppable } from '@dnd-kit/core';
 import './ImageEditor.css';
 
-interface Flag {
+interface FlagElement {
   id: number;
-  url: string;
   x: number;
   y: number;
+  width: number;
+  height: number;
+  imageUrl: string | null;
 }
 
 interface ImageEditorProps {
@@ -17,12 +20,82 @@ export interface ImageEditorHandle {
   handleSave: () => void;
 }
 
+// Draggable Flag component
+const DraggableFlag = ({ flag }: { flag: FlagElement }) => {
+  const { attributes, listeners, setNodeRef, transform } = useDraggable({
+    id: `flag-${flag.id}`,
+  });
+  
+  const style = transform ? {
+    left: `${flag.x}px`,
+    top: `${flag.y}px`,
+    width: `${flag.width}px`,
+    height: `${flag.height}px`,
+    transform: `translate3d(${transform.x}px, ${transform.y}px, 0)`,
+  } : {
+    left: `${flag.x}px`,
+    top: `${flag.y}px`,
+    width: `${flag.width}px`,
+    height: `${flag.height}px`,
+  };
+
+  return (
+    <div
+      ref={setNodeRef}
+      className="draggable-flag"
+      style={style}
+      {...listeners}
+      {...attributes}
+    >
+      {flag.imageUrl && (
+        <img 
+          src={flag.imageUrl} 
+          alt="Flag" 
+          style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+        />
+      )}
+    </div>
+  );
+};
+
+// Droppable Canvas Area
+const DroppableCanvas = ({ children, onDrop }: { 
+  children: React.ReactNode, 
+  onDrop: (id: string) => void 
+}) => {
+  const { setNodeRef } = useDroppable({
+    id: 'canvas-drop-area',
+  });
+
+  return (
+    <div ref={setNodeRef} className="canvas-drop-area">
+      {children}
+    </div>
+  );
+};
+
 const ImageEditor = forwardRef<ImageEditorHandle, ImageEditorProps>(({ imageUrl, selectedFlag }, ref) => {
-  const [flags, setFlags] = useState<Flag[]>([]);
-  const [draggedFlag, setDraggedFlag] = useState<number | null>(null);
-  const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
+  const [flag, setFlag] = useState<FlagElement>({
+    id: 1,
+    x: 50,
+    y: 50,
+    width: 100,
+    height: 60,
+    imageUrl: null
+  });
+  
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  
+  // Update flag image when selectedFlag changes
+  useEffect(() => {
+    if (selectedFlag) {
+      setFlag(prev => ({
+        ...prev,
+        imageUrl: selectedFlag
+      }));
+    }
+  }, [selectedFlag]);
   
   // Expose handleSave method to parent component
   useImperativeHandle(ref, () => ({
@@ -77,126 +150,31 @@ const ImageEditor = forwardRef<ImageEditorHandle, ImageEditorProps>(({ imageUrl,
     img.src = imageUrl;
   }, [imageUrl]);
   
-  // Add a flag when selected
-  useEffect(() => {
-    if (selectedFlag && containerRef.current) {
-      const container = containerRef.current;
-      const newFlag: Flag = {
-        id: Date.now(),
-        url: selectedFlag,
-        x: container.clientWidth / 2 - 30, // Center the flag
-        y: container.clientHeight / 2 - 20,
-      };
-      
-      setFlags(prev => [...prev, newFlag]);
-    }
-  }, [selectedFlag]);
-  
-  // Improved drag and drop functionality
-  const handleMouseDown = (e: React.MouseEvent, flagId: number) => {
-    e.stopPropagation(); // Stop event propagation
+  // Handle drag events
+  const handleDragStart = (event: DragStartEvent) => {
+    // Add any logic needed when drag starts
+    console.log('Drag started:', event);
+  };
+
+  const handleDragMove = (event: DragMoveEvent) => {
+    // Optional: Add any logic needed during drag
+    console.log('Drag move:', event);
+  };
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    console.log('Drag ended:', event);
+    const { delta } = event;
     
-    // Get container bounds
-    const containerRect = containerRef.current?.getBoundingClientRect();
-    if (!containerRect) return;
-    
-    // Find the flag being dragged
-    const flag = flags.find(f => f.id === flagId);
-    if (!flag) return;
-    
-    // Calculate the offset from the mouse position to the flag's top-left corner
-    const offsetX = e.clientX - (containerRect.left + flag.x);
-    const offsetY = e.clientY - (containerRect.top + flag.y);
-    
-    setDraggedFlag(flagId);
-    setDragOffset({ x: offsetX, y: offsetY });
-    
-    // Add event listeners to document for smoother dragging
-    document.addEventListener('mousemove', handleMouseMove);
-    document.addEventListener('mouseup', handleMouseUp);
+    // Update the flag position based on the delta
+    setFlag(prev => ({
+      ...prev,
+      x: prev.x + delta.x,
+      y: prev.y + delta.y
+    }));
   };
   
-  const handleMouseMove = (e: MouseEvent) => {
-    if (draggedFlag === null || !containerRef.current) return;
-    
-    const containerRect = containerRef.current.getBoundingClientRect();
-    
-    // Calculate new position relative to container
-    const newX = e.clientX - containerRect.left - dragOffset.x;
-    const newY = e.clientY - containerRect.top - dragOffset.y;
-    
-    // Ensure flag stays within container bounds
-    const boundedX = Math.max(0, Math.min(newX, containerRect.width - 60));
-    const boundedY = Math.max(0, Math.min(newY, containerRect.height - 40));
-    
-    // Update the flag position
-    setFlags(prev => prev.map(flag => 
-      flag.id === draggedFlag 
-        ? { ...flag, x: boundedX, y: boundedY } 
-        : flag
-    ));
-  };
-  
-  const handleMouseUp = () => {
-    setDraggedFlag(null);
-    
-    // Remove event listeners when done dragging
-    document.removeEventListener('mousemove', handleMouseMove);
-    document.removeEventListener('mouseup', handleMouseUp);
-  };
-  
-  // Touch events for mobile devices
-  const handleTouchStart = (e: React.TouchEvent, flagId: number) => {
-    e.stopPropagation(); // Stop event propagation
-    
-    // Get container bounds
-    const containerRect = containerRef.current?.getBoundingClientRect();
-    if (!containerRect || !e.touches[0]) return;
-    
-    // Find the flag being dragged
-    const flag = flags.find(f => f.id === flagId);
-    if (!flag) return;
-    
-    const touch = e.touches[0];
-    
-    // Calculate the offset from the touch position to the flag's top-left corner
-    const offsetX = touch.clientX - (containerRect.left + flag.x);
-    const offsetY = touch.clientY - (containerRect.top + flag.y);
-    
-    setDraggedFlag(flagId);
-    setDragOffset({ x: offsetX, y: offsetY });
-    
-    document.addEventListener('touchmove', handleTouchMove, { passive: false });
-    document.addEventListener('touchend', handleTouchEnd);
-  };
-  
-  const handleTouchMove = (e: TouchEvent) => {
-    e.preventDefault();
-    if (draggedFlag === null || !containerRef.current || !e.touches[0]) return;
-    
-    const containerRect = containerRef.current.getBoundingClientRect();
-    const touch = e.touches[0];
-    
-    // Calculate new position
-    const newX = touch.clientX - containerRect.left - dragOffset.x;
-    const newY = touch.clientY - containerRect.top - dragOffset.y;
-    
-    // Ensure flag stays within container bounds
-    const boundedX = Math.max(0, Math.min(newX, containerRect.width - 60));
-    const boundedY = Math.max(0, Math.min(newY, containerRect.height - 40));
-    
-    setFlags(prev => prev.map(flag => 
-      flag.id === draggedFlag 
-        ? { ...flag, x: boundedX, y: boundedY } 
-        : flag
-    ));
-  };
-  
-  const handleTouchEnd = () => {
-    setDraggedFlag(null);
-    
-    document.removeEventListener('touchmove', handleTouchMove);
-    document.removeEventListener('touchend', handleTouchEnd);
+  const handleCanvasDrop = (id: string) => {
+    console.log('Flag dropped on canvas:', id);
   };
   
   const handleSave = () => {
@@ -216,51 +194,50 @@ const ImageEditor = forwardRef<ImageEditorHandle, ImageEditorProps>(({ imageUrl,
     // Draw the original canvas content
     finalCtx.drawImage(canvas, 0, 0);
     
-    // Draw all flags onto the canvas
-    const drawFlagPromises = flags.map(flag => {
-      return new Promise<void>((resolve) => {
-        const flagImg = new Image();
-        flagImg.onload = () => {
-          finalCtx.drawImage(flagImg, flag.x, flag.y, 60, 40);
-          resolve();
-        };
-        flagImg.src = flag.url;
-      });
-    });
-    
-    // When all flags are drawn, save the image
-    Promise.all(drawFlagPromises).then(() => {
-      // Convert canvas to data URL
+    // Draw the flag onto the canvas if it exists
+    if (flag.imageUrl) {
+      const flagImg = new Image();
+      flagImg.onload = () => {
+        finalCtx.drawImage(flagImg, flag.x, flag.y, flag.width, flag.height);
+        
+        // Add a border around the flag
+        finalCtx.strokeStyle = '#2980b9';
+        finalCtx.lineWidth = 2;
+        finalCtx.strokeRect(flag.x, flag.y, flag.width, flag.height);
+        
+        // Convert canvas to data URL
+        const dataUrl = finalCanvas.toDataURL('image/png');
+        
+        // Create a download link
+        const link = document.createElement('a');
+        link.download = 'edited-image.png';
+        link.href = dataUrl;
+        link.click();
+      };
+      flagImg.src = flag.imageUrl;
+    } else {
+      // If no flag, just save the image as is
       const dataUrl = finalCanvas.toDataURL('image/png');
-      
-      // Create a download link
       const link = document.createElement('a');
-      link.download = 'flag-stamped-image.png';
+      link.download = 'edited-image.png';
       link.href = dataUrl;
       link.click();
-    });
+    }
   };
   
   return (
     <div className="editor-container" ref={containerRef}>
-      <canvas className="canvas" ref={canvasRef} />
-      
-      {flags.map(flag => (
-        <div 
-          key={flag.id}
-          className={`flag-overlay ${draggedFlag === flag.id ? 'dragging' : ''}`}
-          style={{ 
-            left: `${flag.x}px`, 
-            top: `${flag.y}px`,
-            width: '60px',
-            height: '40px'
-          }}
-          onMouseDown={(e) => handleMouseDown(e, flag.id)}
-          onTouchStart={(e) => handleTouchStart(e, flag.id)}
+      <DroppableCanvas onDrop={handleCanvasDrop}>
+        <canvas className="canvas" ref={canvasRef} />
+        
+        <DndContext
+          onDragStart={handleDragStart}
+          onDragMove={handleDragMove}
+          onDragEnd={handleDragEnd}
         >
-          <img src={flag.url} alt="Flag" />
-        </div>
-      ))}
+          {flag.imageUrl && <DraggableFlag flag={flag} />}
+        </DndContext>
+      </DroppableCanvas>
     </div>
   );
 });
